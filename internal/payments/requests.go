@@ -3,30 +3,22 @@ package payments
 import "time"
 
 type CreatePaymentRequest struct {
-	Amount   float64 `json:"amount"`
-	Currency string  `json:"currency"`
-	Status   string  `json:"status"`
-}
-
-type CreatePaymentResponse struct {
-	Payment Payment `json:"payment"`
-}
-
-type GetPaymentResponse struct {
-	Payment Payment `json:"payment"`
+	Amount   int64  `json:"amount"`
+	Currency string `json:"currency"`
+	Status   string `json:"status"`
 }
 
 type UpdatePaymentRequest struct {
-	Amount   float64 `json:"amount"`
-	Currency string  `json:"currency"`
-	Status   string  `json:"status"`
+	Amount   *int64  `json:"amount"`
+	Currency *string `json:"currency"`
+	Status   *string `json:"status"`
 }
 
-type UpdatePaymentResponse struct {
-	Payment Payment `json:"payment"`
-}
-
-type DeletePaymentResponse struct {
-	DeletedID string    `json:"deletedId"`
-	DeletedAt time.Time `json:"deletedAt"`
+type PaymentResponse struct {
+	ID        string    `json:"id"`
+	Amount    int64     `json:"amount"`
+	Currency  string    `json:"currency"`
+	Status    string    `json:"status"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
 }

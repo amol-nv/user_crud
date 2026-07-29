@@ -2,92 +2,138 @@ package payments
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"time"
 )
 
-type PaymentService struct {
-	repo PaymentRepository
+type PaymentsRepository interface {
+	Create(ctx context.Context, p Payment) (Payment, error)
+	GetByID(ctx context.Context, id string) (Payment, error)
+	Update(ctx context.Context, id string, p Payment) (Payment, error)
+	Delete(ctx context.Context, id string) error
 }
 
-func NewPaymentService(repo PaymentRepository) *PaymentService {
-	return &PaymentService{repo: repo}
+type PaymentsService struct {
+	repo PaymentsRepository
 }
 
-func (s *PaymentService) Create(ctx context.Context, req CreatePaymentRequest) (Payment, error) {
+func NewService(repo PaymentsRepository) *PaymentsService {
+	return &PaymentsService{repo: repo}
+}
+
+func (s *PaymentsService) Create(ctx context.Context, req CreatePaymentRequest) (PaymentResponse, error) {
 	if err := validateCreate(req); err != nil {
-		return Payment{}, err
+		return PaymentResponse{}, err
 	}
 
-	id := newPaymentID()
+	status := PaymentStatus(strings.ToLower(req.Status))
+	if status == "" {
+		status = PaymentStatusPending
+	}
+
+	now := time.Now().UTC()
 	p := Payment{
-		ID:       id,
-		Amount:   req.Amount,
-		Currency: strings.ToUpper(strings.TrimSpace(req.Currency)),
-		Status:   strings.TrimSpace(req.Status),
+		ID:        "", // repository will assign
+		Amount:    req.Amount,
+		Currency:  strings.ToUpper(req.Currency),
+		Status:    status,
+		CreatedAt: now,
+		UpdatedAt: now,
 	}
-	return s.repo.Create(ctx, p)
+
+	created, err := s.repo.Create(ctx, p)
+	if err != nil {
+		return PaymentResponse{}, err
+	}
+	return toPaymentResponse(created), nil
 }
 
-func (s *PaymentService) GetByID(ctx context.Context, id string) (Payment, error) {
+func (s *PaymentsService) GetByID(ctx context.Context, id string) (PaymentResponse, error) {
 	if strings.TrimSpace(id) == "" {
-		return Payment{}, ErrInvalidArgument
+		return PaymentResponse{}, ErrInvalidPayment
 	}
-	return s.repo.GetByID(ctx, id)
+	p, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return PaymentResponse{}, err
+	}
+	return toPaymentResponse(p), nil
 }
 
-func (s *PaymentService) Update(ctx context.Context, id string, req UpdatePaymentRequest) (Payment, error) {
+func (s *PaymentsService) Update(ctx context.Context, id string, req UpdatePaymentRequest) (PaymentResponse, error) {
 	if strings.TrimSpace(id) == "" {
-		return Payment{}, ErrInvalidArgument
+		return PaymentResponse{}, ErrInvalidPayment
 	}
 	if err := validateUpdate(req); err != nil {
-		return Payment{}, err
+		return PaymentResponse{}, err
 	}
 
-	p := Payment{
-		ID:       id,
-		Amount:   req.Amount,
-		Currency: strings.ToUpper(strings.TrimSpace(req.Currency)),
-		Status:   strings.TrimSpace(req.Status),
+	current, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return PaymentResponse{}, err
 	}
-	return s.repo.Update(ctx, id, p)
+
+	updated := current
+	if req.Amount != nil {
+		updated.Amount = *req.Amount
+	}
+	if req.Currency != nil {
+		updated.Currency = strings.ToUpper(*req.Currency)
+	}
+	if req.Status != nil {
+		updated.Status = PaymentStatus(strings.ToLower(*req.Status))
+	}
+	updated.UpdatedAt = time.Now().UTC()
+
+	p, err := s.repo.Update(ctx, id, updated)
+	if err != nil {
+		return PaymentResponse{}, err
+	}
+	return toPaymentResponse(p), nil
 }
 
-func (s *PaymentService) Delete(ctx context.Context, id string) (Payment, error) {
+func (s *PaymentsService) Delete(ctx context.Context, id string) error {
 	if strings.TrimSpace(id) == "" {
-		return Payment{}, ErrInvalidArgument
+		return ErrInvalidPayment
 	}
 	return s.repo.Delete(ctx, id)
 }
 
 func validateCreate(req CreatePaymentRequest) error {
 	if req.Amount <= 0 {
-		return ErrInvalidArgument
+		return ErrInvalidPayment
 	}
 	if strings.TrimSpace(req.Currency) == "" {
-		return ErrInvalidArgument
+		return ErrInvalidPayment
 	}
-	if strings.TrimSpace(req.Status) == "" {
-		return ErrInvalidArgument
+	// status is optional; if provided, allow any non-empty string
+	if strings.TrimSpace(req.Status) != "" {
+		if strings.TrimSpace(req.Status) == "" {
+			return ErrInvalidPayment
+		}
 	}
 	return nil
 }
 
 func validateUpdate(req UpdatePaymentRequest) error {
-	if req.Amount <= 0 {
-		return ErrInvalidArgument
+	if req.Amount != nil && *req.Amount <= 0 {
+		return ErrInvalidPayment
 	}
-	if strings.TrimSpace(req.Currency) == "" {
-		return ErrInvalidArgument
+	if req.Currency != nil && strings.TrimSpace(*req.Currency) == "" {
+		return ErrInvalidPayment
 	}
-	if strings.TrimSpace(req.Status) == "" {
-		return ErrInvalidArgument
+	if req.Status != nil && strings.TrimSpace(*req.Status) == "" {
+		return ErrInvalidPayment
 	}
 	return nil
 }
 
-func newPaymentID() string {
-	// Simple deterministic-ish ID for local development.
-	return fmt.Sprintf("pay_%d", time.Now().UTC().UnixNano())
+func toPaymentResponse(p Payment) PaymentResponse {
+	return PaymentResponse{
+		ID:        p.ID,
+		Amount:    p.Amount,
+		Currency:  p.Currency,
+		Status:    string(p.Status),
+		CreatedAt: p.CreatedAt,
+		UpdatedAt: p.UpdatedAt,
+	}
 }
