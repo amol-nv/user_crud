@@ -6,17 +6,14 @@ import (
 
 	"amol-nv/user_crud/internal/httpapi"
 	"amol-nv/user_crud/internal/store"
-	"amol-nv/user_crud/internal/users"
 )
 
 func main() {
 	st := store.NewInMemoryUserStore()
-	svc := users.NewService(st)
-
-	r := httpapi.NewRouter(svc)
+	router := httpapi.NewRouter(st)
 
 	log.Println("listening on :8080")
-	if err := http.ListenAndServe(":8080", r); err != nil {
+	if err := http.ListenAndServe(":8080", router); err != nil {
 		log.Fatal(err)
 	}
 }

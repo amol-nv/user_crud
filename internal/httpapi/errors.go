@@ -1,20 +1,30 @@
 package httpapi
 
 import (
-	"encoding/json"
+	"errors"
 	"net/http"
+
+	"amol-nv/user_crud/internal/store"
+	"amol-nv/user_crud/internal/users"
 )
 
-type apiError struct {
-	Error string `json:"error"`
+func WriteJSON(w http.ResponseWriter, status int, v any) {
+	writeJSON(w, status, v)
 }
 
-func writeJSON(w http.ResponseWriter, status int, v any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(v)
+func WriteError(w http.ResponseWriter, status int, msg string) {
+	writeJSON(w, status, map[string]any{"error": msg})
 }
 
-func writeError(w http.ResponseWriter, status int, msg string) {
-	writeJSON(w, status, apiError{Error: msg})
+func WriteErrorFromService(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, users.ErrNotFound), errors.Is(err, store.ErrNotFound):
+		WriteError(w, http.StatusNotFound, "not found")
+	case errors.Is(err, users.ErrValidation):
+		WriteError(w, http.StatusBadRequest, "validation error")
+	case errors.Is(err, users.ErrInvalidID):
+		WriteError(w, http.StatusBadRequest, "invalid id")
+	default:
+		WriteError(w, http.StatusInternalServerError, "internal error")
+	}
 }
