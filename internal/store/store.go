@@ -1,23 +1,36 @@
 package store
 
-import "time"
+import "amol-nv/user_crud/internal/users"
 
-type User struct {
-	ID        string
-	Name      string
-	Email     string
-	CreatedAt time.Time
-	UpdatedAt time.Time
-}
-
-type UserPatch struct {
-	Name  *string
-	Email *string
+type Store interface {
+	UserStore
+	PaymentStore
 }
 
 type UserStore interface {
-	Create(u User) (User, error)
-	Get(id string) (User, error)
-	Update(id string, patch UserPatch) (User, error)
-	Delete(id string) error
+		Create(u *users.User) (*users.User, error)
+		GetByID(id string) (*users.User, error)
+		List() ([]*users.User, error)
+		Update(u *users.User) (*users.User, error)
+		Delete(id string) error
+}
+
+type PaymentStore interface {
+		Create(p *Payment) (*Payment, error)
+		GetByID(id string) (*Payment, error)
+		List() ([]*Payment, error)
+		Update(p *Payment) (*Payment, error)
+		Delete(id string) error
+}
+
+// Payment is the persistence model used by the in-memory store.
+// The payments service maps this to its own model.
+// Keeping it in store avoids circular imports.
+type Payment struct {
+	ID        string
+	Amount    float64
+	Currency  string
+	Status    string
+	CreatedAt interface{}
+	UpdatedAt interface{}
 }
