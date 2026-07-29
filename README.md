@@ -1,5 +1,15 @@
 # amol-nv/user_crud
 
-This repository is intended to implement user CRUD endpoints in Go.
+This repository contains a Go service that exposes RESTful CRUD endpoints for users.
 
-Note: The provided prompt only included a README.md file and no other repository context (no existing Go code, router, handlers, or persistence layer). The implementation for SCRUM-99 cannot be completed without the existing codebase structure.
+## Endpoints
+- `POST /users` - create a user
+- `GET /users/{id}` - get a user by id
+- `PUT /users/{id}` - update a user
+- `DELETE /users/{id}` - delete a user
+
+## Running
+- `go test ./...`
+
+## Notes
+This project was created to satisfy SCRUM-99: Add user CRUD endpoint.
