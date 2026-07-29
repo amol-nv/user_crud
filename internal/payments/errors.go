@@ -3,6 +3,6 @@ package payments
 import "errors"
 
 var (
-	ErrPaymentNotFound = errors.New("payment not found")
-	ErrInvalidPayment  = errors.New("invalid payment")
+	ErrNotFound = errors.New("payment not found")
+	ErrInvalid  = errors.New("invalid payment")
 )

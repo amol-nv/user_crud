@@ -2,7 +2,7 @@ package payments
 
 import "time"
 
-type Payment struct {
+type PaymentResponse struct {
 	ID        string    `json:"id"`
 	UserID    string    `json:"user_id"`
 	Amount    int64     `json:"amount"`

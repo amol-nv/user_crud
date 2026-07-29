@@ -1,103 +1,106 @@
 package payments
 
 import (
+	"encoding/json"
 	"net/http"
 
-	"github.com/amol-nv/user_crud/internal/httpapi"
-	"github.com/go-chi/chi/v5"
+	"amol-nv/user_crud/internal/httpapi"
 )
 
 type Handler struct {
-	service *Service
+	svc *Service
 }
 
-func NewHandler(service *Service) *Handler {
-	return &Handler{service: service}
+func NewHandler(svc *Service) *Handler {
+	return &Handler{svc: svc}
 }
 
-func (h *Handler) Routes(r chi.Router) {
-	r.Route("/payments", func(r chi.Router) {
-		r.Post("", h.create)
-		r.Get("", h.list)
-		r.Get("/{id}", h.getByID)
-		r.Put("/{id}", h.update)
-		r.Delete("/{id}", h.delete)
-	})
+func (h *Handler) RegisterRoutes(r *httpapi.Router) {
+	r.Handle(http.MethodPost, "/payments", h.create)
+	r.Handle(http.MethodGet, "/payments/{id}", h.getByID)
+	r.Handle(http.MethodPut, "/payments/{id}", h.update)
+	r.Handle(http.MethodDelete, "/payments/{id}", h.delete)
 }
 
 func (h *Handler) create(w http.ResponseWriter, req *http.Request) {
 	var body CreatePaymentRequest
-	if err := httpapi.DecodeJSON(req, &body); err != nil {
-		httpapi.WriteError(w, http.StatusBadRequest, err)
+	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
+		httpapi.WriteError(w, http.StatusBadRequest, httpapi.ErrBadRequest)
 		return
 	}
 
-	payment, err := h.service.Create(body)
+	resp, err := h.svc.Create(req.Context(), body)
 	if err != nil {
 		status := http.StatusBadRequest
-		if err == ErrPaymentNotFound {
+		if err == ErrNotFound {
 			status = http.StatusNotFound
+		}
+		if err == ErrInvalid {
+			status = http.StatusBadRequest
 		}
 		httpapi.WriteError(w, status, err)
 		return
 	}
 
-	httpapi.WriteJSON(w, http.StatusCreated, payment)
-}
-
-func (h *Handler) list(w http.ResponseWriter, req *http.Request) {
-	payments, err := h.service.List()
-	if err != nil {
-		httpapi.WriteError(w, http.StatusInternalServerError, err)
-		return
-	}
-	httpapi.WriteJSON(w, http.StatusOK, payments)
+	httpapi.WriteJSON(w, http.StatusCreated, resp)
 }
 
 func (h *Handler) getByID(w http.ResponseWriter, req *http.Request) {
-	id := chi.URLParam(req, "id")
-	payment, err := h.service.GetByID(id)
+	id := httpapi.Param(req, "id")
+	resp, err := h.svc.GetByID(req.Context(), id)
 	if err != nil {
 		status := http.StatusBadRequest
-		if err == ErrPaymentNotFound {
+		if err == ErrNotFound {
 			status = http.StatusNotFound
+		}
+		if err == ErrInvalid {
+			status = http.StatusBadRequest
 		}
 		httpapi.WriteError(w, status, err)
 		return
 	}
-	httpapi.WriteJSON(w, http.StatusOK, payment)
+
+	httpapi.WriteJSON(w, http.StatusOK, resp)
 }
 
 func (h *Handler) update(w http.ResponseWriter, req *http.Request) {
-	id := chi.URLParam(req, "id")
+	id := httpapi.Param(req, "id")
+
 	var body UpdatePaymentRequest
-	if err := httpapi.DecodeJSON(req, &body); err != nil {
-		httpapi.WriteError(w, http.StatusBadRequest, err)
+	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
+		httpapi.WriteError(w, http.StatusBadRequest, httpapi.ErrBadRequest)
 		return
 	}
 
-	payment, err := h.service.Update(id, body)
+	resp, err := h.svc.Update(req.Context(), id, body)
 	if err != nil {
 		status := http.StatusBadRequest
-		if err == ErrPaymentNotFound {
+		if err == ErrNotFound {
 			status = http.StatusNotFound
+		}
+		if err == ErrInvalid {
+			status = http.StatusBadRequest
 		}
 		httpapi.WriteError(w, status, err)
 		return
 	}
 
-	httpapi.WriteJSON(w, http.StatusOK, payment)
+	httpapi.WriteJSON(w, http.StatusOK, resp)
 }
 
 func (h *Handler) delete(w http.ResponseWriter, req *http.Request) {
-	id := chi.URLParam(req, "id")
-	if err := h.service.Delete(id); err != nil {
+	id := httpapi.Param(req, "id")
+	if err := h.svc.Delete(req.Context(), id); err != nil {
 		status := http.StatusBadRequest
-		if err == ErrPaymentNotFound {
+		if err == ErrNotFound {
 			status = http.StatusNotFound
+		}
+		if err == ErrInvalid {
+			status = http.StatusBadRequest
 		}
 		httpapi.WriteError(w, status, err)
 		return
 	}
+
 	w.WriteHeader(http.StatusNoContent)
 }
