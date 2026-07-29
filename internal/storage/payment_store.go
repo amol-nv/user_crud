@@ -3,81 +3,61 @@ package storage
 import (
 	"context"
 	"sync"
-	"time"
 
-	"amol-nv/user_crud/internal/payments"
+	"amol-nv/user_crud/internal/payment"
 )
 
-type InMemoryPaymentStore struct {
-	mu       sync.RWMutex
-	payments map[string]payments.Payment
+type PaymentStore struct {
+	mu    sync.RWMutex
+	data  map[string]payment.Payment
 }
 
-func NewInMemoryPaymentStore() *InMemoryPaymentStore {
-	return &InMemoryPaymentStore{payments: make(map[string]payments.Payment)}
+func NewPaymentStore() *PaymentStore {
+	return &PaymentStore{data: make(map[string]payment.Payment)}
 }
 
-func (s *InMemoryPaymentStore) Create(ctx context.Context, p payments.Payment) (payments.Payment, error) {
+func (s *PaymentStore) Create(ctx context.Context, p payment.Payment) (payment.Payment, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	// Basic validation (service should validate too).
-	if p.ID == "" || p.UserID == "" || p.Amount <= 0 || p.Currency == "" {
-		return payments.Payment{}, payments.ErrInvalid
+	if _, ok := s.data[p.ID]; ok {
+		// treat as invalid for simplicity
+		return payment.Payment{}, payment.ErrInvalidPayment
 	}
-
-	now := time.Now().UTC()
-	if p.CreatedAt.IsZero() {
-		p.CreatedAt = now
-	}
-	p.UpdatedAt = now
-
-	s.payments[p.ID] = p
+	s.data[p.ID] = p
 	return p, nil
 }
 
-func (s *InMemoryPaymentStore) GetByID(ctx context.Context, id string) (payments.Payment, error) {
+func (s *PaymentStore) GetByID(ctx context.Context, id string) (payment.Payment, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	p, ok := s.payments[id]
+	p, ok := s.data[id]
 	if !ok {
-		return payments.Payment{}, payments.ErrNotFound
+		return payment.Payment{}, payment.ErrNotFound
 	}
 	return p, nil
 }
 
-func (s *InMemoryPaymentStore) Update(ctx context.Context, id string, p payments.Payment) (payments.Payment, error) {
+func (s *PaymentStore) Update(ctx context.Context, id string, p payment.Payment) (payment.Payment, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if id == "" || p.UserID == "" || p.Amount <= 0 || p.Currency == "" || p.Status == "" {
-		return payments.Payment{}, payments.ErrInvalid
+	if _, ok := s.data[id]; !ok {
+		return payment.Payment{}, payment.ErrNotFound
 	}
-
-	existing, ok := s.payments[id]
-	if !ok {
-		return payments.Payment{}, payments.ErrNotFound
-	}
-
-	now := time.Now().UTC()
-	existing.UserID = p.UserID
-	existing.Amount = p.Amount
-	existing.Currency = p.Currency
-	existing.Status = p.Status
-	existing.UpdatedAt = now
-
-	s.payments[id] = existing
-	return existing, nil
+	p.ID = id
+	s.data[id] = p
+	return p, nil
 }
 
-func (s *InMemoryPaymentStore) Delete(ctx context.Context, id string) error {
+func (s *PaymentStore) Delete(ctx context.Context, id string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if _, ok := s.payments[id]; !ok {
-		return payments.ErrNotFound
+	if _, ok := s.data[id]; !ok {
+		return payment.ErrNotFound
 	}
-	delete(s.payments, id)
+	delete(s.data, id)
 	return nil
 }

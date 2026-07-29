@@ -1,38 +1,26 @@
 package httpapi
 
 import (
-	"net/http"
-
-	"amol-nv/user_crud/internal/payments"
+	"amol-nv/user_crud/internal/inventory"
+	"amol-nv/user_crud/internal/payment"
+	"amol-nv/user_crud/internal/storage"
 	"amol-nv/user_crud/internal/users"
-
 	"github.com/go-chi/chi/v5"
 )
 
-type Router struct {
-	r *chi.Mux
-}
-
-func NewRouter(userSvc *users.Service, paymentsSvc *payments.PaymentsService) http.Handler {
+func NewRouter(invSvc *inventory.Service, userSvc *users.Service, paymentSvc *payment.Service) chi.Router {
 	r := chi.NewRouter()
 
-	uh := users.NewHandler(userSvc)
-	r.Post("/users", uh.Create)
-	r.Get("/users/{id}", uh.GetByID)
-	r.Put("/users/{id}", uh.Update)
-	r.Delete("/users/{id}", uh.Delete)
+	// existing routes
+	invHandler := NewInventoryHandler(invSvc)
+	invHandler.RegisterRoutes(r)
 
-	if paymentsSvc != nil {
-		ph := payments.NewHandler(paymentsSvc)
-		r.Post("/payments", ph.Create)
-		r.Get("/payments/{id}", ph.GetByID)
-		r.Put("/payments/{id}", ph.Update)
-		r.Delete("/payments/{id}", ph.Delete)
-	}
+	userHandler := NewUserHandler(userSvc)
+	userHandler.RegisterRoutes(r)
+
+	// payment routes
+	paymentHandler := NewPaymentHandler(paymentSvc)
+	paymentHandler.RegisterRoutes(r)
 
 	return r
-}
-
-func Param(r *http.Request, key string) string {
-	return chi.URLParam(r, key)
 }
