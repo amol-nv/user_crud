@@ -3,124 +3,91 @@ package payments
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 )
 
-type Service struct {
-	store Store
+type PaymentService struct {
+	repo PaymentRepository
 }
 
-func NewService(store Store) *Service {
-	return &Service{store: store}
+func NewPaymentService(repo PaymentRepository) *PaymentService {
+	return &PaymentService{repo: repo}
 }
 
-func (s *Service) Create(ctx context.Context, req CreatePaymentRequest) (PaymentResponse, error) {
+func (s *PaymentService) Create(ctx context.Context, req CreatePaymentRequest) (Payment, error) {
 	if err := validateCreate(req); err != nil {
-		return PaymentResponse{}, err
+		return Payment{}, err
 	}
 
-	now := time.Now().UTC()
+	id := newPaymentID()
 	p := Payment{
-		ID:        newID(),
-		UserID:    req.UserID,
-		Amount:    req.Amount,
-		Currency:  req.Currency,
-		Status:    "created",
-		CreatedAt: now,
-		UpdatedAt: now,
+		ID:       id,
+		Amount:   req.Amount,
+		Currency: strings.ToUpper(strings.TrimSpace(req.Currency)),
+		Status:   strings.TrimSpace(req.Status),
 	}
-
-	created, err := s.store.Create(ctx, p)
-	if err != nil {
-		return PaymentResponse{}, err
-	}
-	return toPaymentResponse(created), nil
+	return s.repo.Create(ctx, p)
 }
 
-func (s *Service) GetByID(ctx context.Context, id string) (PaymentResponse, error) {
-	if id == "" {
-		return PaymentResponse{}, ErrInvalid
+func (s *PaymentService) GetByID(ctx context.Context, id string) (Payment, error) {
+	if strings.TrimSpace(id) == "" {
+		return Payment{}, ErrInvalidArgument
 	}
-
-	p, err := s.store.GetByID(ctx, id)
-	if err != nil {
-		return PaymentResponse{}, err
-	}
-	return toPaymentResponse(p), nil
+	return s.repo.GetByID(ctx, id)
 }
 
-func (s *Service) Update(ctx context.Context, id string, req UpdatePaymentRequest) (PaymentResponse, error) {
-	if id == "" {
-		return PaymentResponse{}, ErrInvalid
+func (s *PaymentService) Update(ctx context.Context, id string, req UpdatePaymentRequest) (Payment, error) {
+	if strings.TrimSpace(id) == "" {
+		return Payment{}, ErrInvalidArgument
 	}
 	if err := validateUpdate(req); err != nil {
-		return PaymentResponse{}, err
+		return Payment{}, err
 	}
 
 	p := Payment{
 		ID:       id,
-		UserID:   req.UserID,
 		Amount:   req.Amount,
-		Currency: req.Currency,
-		Status:   req.Status,
+		Currency: strings.ToUpper(strings.TrimSpace(req.Currency)),
+		Status:   strings.TrimSpace(req.Status),
 	}
-
-	updated, err := s.store.Update(ctx, id, p)
-	if err != nil {
-		return PaymentResponse{}, err
-	}
-	return toPaymentResponse(updated), nil
+	return s.repo.Update(ctx, id, p)
 }
 
-func (s *Service) Delete(ctx context.Context, id string) error {
-	if id == "" {
-		return ErrInvalid
+func (s *PaymentService) Delete(ctx context.Context, id string) (Payment, error) {
+	if strings.TrimSpace(id) == "" {
+		return Payment{}, ErrInvalidArgument
 	}
-	return s.store.Delete(ctx, id)
+	return s.repo.Delete(ctx, id)
 }
 
 func validateCreate(req CreatePaymentRequest) error {
-	if req.UserID == "" {
-		return ErrInvalid
-	}
 	if req.Amount <= 0 {
-		return ErrInvalid
+		return ErrInvalidArgument
 	}
-	if req.Currency == "" {
-		return ErrInvalid
+	if strings.TrimSpace(req.Currency) == "" {
+		return ErrInvalidArgument
+	}
+	if strings.TrimSpace(req.Status) == "" {
+		return ErrInvalidArgument
 	}
 	return nil
 }
 
 func validateUpdate(req UpdatePaymentRequest) error {
-	if req.UserID == "" {
-		return ErrInvalid
-	}
 	if req.Amount <= 0 {
-		return ErrInvalid
+		return ErrInvalidArgument
 	}
-	if req.Currency == "" {
-		return ErrInvalid
+	if strings.TrimSpace(req.Currency) == "" {
+		return ErrInvalidArgument
 	}
-	if req.Status == "" {
-		return ErrInvalid
+	if strings.TrimSpace(req.Status) == "" {
+		return ErrInvalidArgument
 	}
 	return nil
 }
 
-func toPaymentResponse(p Payment) PaymentResponse {
-	return PaymentResponse{
-		ID:        p.ID,
-		UserID:    p.UserID,
-		Amount:    p.Amount,
-		Currency:  p.Currency,
-		Status:    p.Status,
-		CreatedAt: p.CreatedAt,
-		UpdatedAt: p.UpdatedAt,
-	}
-}
-
-func newID() string {
-	// Simple deterministic-ish ID without external deps.
-	return fmt.Sprintf("pay_%d", time.Now().UnixNano())
+func newPaymentID() string {
+	// Simple deterministic-ish ID for local development.
+	return fmt.Sprintf("pay_%d", time.Now().UTC().UnixNano())
 }

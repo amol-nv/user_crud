@@ -6,77 +6,66 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/amol-nv/user_crud/internal/httpapi"
 	"github.com/go-chi/chi/v5"
 )
 
-func TestPaymentCRUD(t *testing.T) {
-	store := NewMemoryPaymentStore()
-	svc := NewService(store)
-	h := NewHandler(svc)
+func TestPaymentHandler_CRUD(t *testing.T) {
+	repo := NewMemoryPaymentRepository()
+	svc := NewPaymentService(repo)
+	h := NewPaymentHandler(svc)
 
 	r := chi.NewRouter()
 	h.Routes(r)
 
-	// create
-	createBody := []byte(`{"userId":"u1","amount":10.5,"currency":"USD","status":"created"}`)
-	w := httptest.NewRecorder()
+	// Create
+	createBody := []byte(`{"amount":10.5,"currency":"usd","status":"created"}`)
 	req := httptest.NewRequest(http.MethodPost, "/payments", bytes.NewReader(createBody))
-	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 	if w.Code != http.StatusCreated {
-		t.Fatalf("expected status 201, got %d: %s", w.Code, w.Body.String())
+		t.Fatalf("expected 201, got %d", w.Code)
 	}
 
-	var created Payment
-	if err := httpapi.DecodeJSON(w.Result().Request, &created); err == nil {
-		// no-op; DecodeJSON expects request, not response
+	var createResp CreatePaymentResponse
+	if err := decodeJSONFromRecorder(w, &createResp); err != nil {
+		t.Fatalf("decode create response: %v", err)
+	}
+	if createResp.Payment.ID == "" {
+		t.Fatalf("expected payment id")
 	}
 
-	// Instead decode from body
-	if err := httpapi.DecodeJSONFromBytes(w.Body.Bytes(), &created); err != nil {
-		t.Fatalf("decode created: %v", err)
-	}
+	id := createResp.Payment.ID
 
-	// list
+	// Get
 	w = httptest.NewRecorder()
-	req = httptest.NewRequest(http.MethodGet, "/payments", nil)
+	req = httptest.NewRequest(http.MethodGet, "/payments/"+id, nil)
 	r.ServeHTTP(w, req)
 	if w.Code != http.StatusOK {
-		t.Fatalf("expected status 200, got %d: %s", w.Code, w.Body.String())
+		t.Fatalf("expected 200, got %d", w.Code)
 	}
 
-	// get
+	// Update
+	updateBody := []byte(`{"amount":20,"currency":"USD","status":"updated"}`)
 	w = httptest.NewRecorder()
-	req = httptest.NewRequest(http.MethodGet, "/payments/"+created.ID, nil)
+	req = httptest.NewRequest(http.MethodPut, "/payments/"+id, bytes.NewReader(updateBody))
 	r.ServeHTTP(w, req)
 	if w.Code != http.StatusOK {
-		t.Fatalf("expected status 200, got %d: %s", w.Code, w.Body.String())
+		t.Fatalf("expected 200, got %d", w.Code)
 	}
 
-	// update
-	updateBody := []byte(`{"amount":20.0}`)
+	// Delete
 	w = httptest.NewRecorder()
-	req = httptest.NewRequest(http.MethodPut, "/payments/"+created.ID, bytes.NewReader(updateBody))
-	req.Header.Set("Content-Type", "application/json")
+	req = httptest.NewRequest(http.MethodDelete, "/payments/"+id, nil)
 	r.ServeHTTP(w, req)
 	if w.Code != http.StatusOK {
-		t.Fatalf("expected status 200, got %d: %s", w.Code, w.Body.String())
+		t.Fatalf("expected 200, got %d", w.Code)
 	}
 
-	// delete
+	// Get after delete
 	w = httptest.NewRecorder()
-	req = httptest.NewRequest(http.MethodDelete, "/payments/"+created.ID, nil)
-	r.ServeHTTP(w, req)
-	if w.Code != http.StatusNoContent {
-		t.Fatalf("expected status 204, got %d: %s", w.Code, w.Body.String())
-	}
-
-	// get after delete
-	w = httptest.NewRecorder()
-	req = httptest.NewRequest(http.MethodGet, "/payments/"+created.ID, nil)
+	req = httptest.NewRequest(http.MethodGet, "/payments/"+id, nil)
 	r.ServeHTTP(w, req)
 	if w.Code != http.StatusNotFound {
-		t.Fatalf("expected status 404, got %d: %s", w.Code, w.Body.String())
+		t.Fatalf("expected 404, got %d", w.Code)
 	}
 }

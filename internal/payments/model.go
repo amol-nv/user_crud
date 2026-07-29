@@ -4,10 +4,9 @@ import "time"
 
 type Payment struct {
 	ID        string    `json:"id"`
-	UserID    string    `json:"user_id"`
-	Amount    int64     `json:"amount"`
+	Amount    float64   `json:"amount"`
 	Currency  string    `json:"currency"`
 	Status    string    `json:"status"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
 }
