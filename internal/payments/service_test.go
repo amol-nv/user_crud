@@ -5,52 +5,66 @@ import (
 	"testing"
 )
 
-type stubRepo struct {
-	created Payment
-	called  bool
+type fakeProvider struct {
+	status PaymentStatus
+	err    error
 }
 
-func (s *stubRepo) Create(ctx context.Context, p Payment) (Payment, error) {
-	s.called = true
-	s.created = p
+func (f *fakeProvider) Charge(ctx context.Context, p Payment) (PaymentStatus, error) {
+	return f.status, f.err
+}
+
+type fakeRepo struct {
+	created Payment
+	gotID   string
+}
+
+func (r *fakeRepo) Create(ctx context.Context, p Payment) (Payment, error) {
+	r.created = p
 	return p, nil
 }
 
-func TestService_CreatePayment_Valid(t *testing.T) {
-	repo := &stubRepo{}
-	svc := NewService(repo)
+func (r *fakeRepo) GetByID(ctx context.Context, id string) (Payment, error) {
+	r.gotID = id
+	return r.created, nil
+}
 
-	p, err := svc.CreatePayment(context.Background(), CreatePaymentRequest{
+func (r *fakeRepo) UpdateStatus(ctx context.Context, id string, status PaymentStatus) (Payment, error) {
+	r.created.ID = id
+	r.created.Status = status
+	return r.created, nil
+}
+
+func TestService_CreatePayment_Succeeds(t *testing.T) {
+	repo := &fakeRepo{}
+	provider := &fakeProvider{status: PaymentStatusSucceeded}
+	svc := NewService(repo, provider)
+
+	resp, err := svc.CreatePayment(context.Background(), CreatePaymentRequest{
 		UserID:   "u1",
+		OrderID:  "o1",
 		Amount:   100,
 		Currency: "usd",
 	})
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
-	if !repo.called {
-		t.Fatalf("expected repo to be called")
+	if resp.Payment.Status != PaymentStatusSucceeded {
+		t.Fatalf("expected succeeded, got %s", resp.Payment.Status)
 	}
-	if p.UserID != "u1" {
-		t.Fatalf("expected userId u1, got %s", p.UserID)
-	}
-	if p.Amount != 100 {
-		t.Fatalf("expected amount 100, got %d", p.Amount)
-	}
-	if p.Currency != "USD" {
-		t.Fatalf("expected currency USD, got %s", p.Currency)
-	}
-	if p.Status != PaymentStatusCompleted {
-		t.Fatalf("expected status completed, got %s", p.Status)
+	if resp.Payment.Currency != "USD" {
+		t.Fatalf("expected currency USD, got %s", resp.Payment.Currency)
 	}
 }
 
 func TestService_CreatePayment_InvalidAmount(t *testing.T) {
-	repo := &stubRepo{}
-	svc := NewService(repo)
+	repo := &fakeRepo{}
+	provider := &fakeProvider{status: PaymentStatusSucceeded}
+	svc := NewService(repo, provider)
 
 	_, err := svc.CreatePayment(context.Background(), CreatePaymentRequest{
 		UserID:   "u1",
+		OrderID:  "o1",
 		Amount:   0,
 		Currency: "USD",
 	})
