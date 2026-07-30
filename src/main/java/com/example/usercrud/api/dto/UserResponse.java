@@ -1,44 +1,14 @@
-package com.example.usercrud.domain;
-
-import jakarta.persistence.*;
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
+package com.example.usercrud.api.dto;
 
 import java.time.Instant;
 
-@Entity
-@Table(name = "users")
-public class User {
+public class UserResponse {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
-    @NotBlank
-    @Size(max = 100)
-    @Column(nullable = false, length = 100)
     private String name;
-
-    @NotBlank
-    @Email
-    @Size(max = 150)
-    @Column(nullable = false, length = 150, unique = true)
     private String email;
-
-    @Size(max = 500)
-    @Column(length = 500)
     private String bio;
-
-    @Column(nullable = false, updatable = false)
     private Instant createdAt;
-
-    @PrePersist
-    void onCreate() {
-        if (createdAt == null) {
-            createdAt = Instant.now();
-        }
-    }
 
     public Long getId() {
         return id;

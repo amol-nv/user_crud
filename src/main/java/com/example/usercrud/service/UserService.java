@@ -1,9 +1,10 @@
 package com.example.usercrud.service;
 
+import com.example.usercrud.api.error.NotFoundException;
+import com.example.usercrud.api.dto.CreateUserRequest;
+import com.example.usercrud.api.dto.UpdateUserRequest;
+import com.example.usercrud.api.dto.UserResponse;
 import com.example.usercrud.domain.User;
-import com.example.usercrud.dto.UserCreateRequest;
-import com.example.usercrud.dto.UserResponse;
-import com.example.usercrud.dto.UserUpdateRequest;
 import com.example.usercrud.repository.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -11,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 
 @Service
+@Transactional
 public class UserService {
 
     private final UserRepository userRepository;
@@ -19,18 +21,21 @@ public class UserService {
         this.userRepository = userRepository;
     }
 
-    @Transactional
-    public UserResponse create(UserCreateRequest request) {
-        if (userRepository.existsByEmail(request.getEmail())) {
-            throw new DuplicateEmailException("Email already exists");
-        }
-
+    public UserResponse create(CreateUserRequest request) {
         User user = new User();
         user.setName(request.getName());
         user.setEmail(request.getEmail());
+        user.setBio(request.getBio());
 
         User saved = userRepository.save(user);
         return toResponse(saved);
+    }
+
+    @Transactional(readOnly = true)
+    public UserResponse getById(Long id) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("User not found with id=" + id));
+        return toResponse(user);
     }
 
     @Transactional(readOnly = true)
@@ -38,34 +43,21 @@ public class UserService {
         return userRepository.findAll().stream().map(this::toResponse).toList();
     }
 
-    @Transactional(readOnly = true)
-    public UserResponse getById(long id) {
+    public UserResponse update(Long id, UpdateUserRequest request) {
         User user = userRepository.findById(id)
-                .orElseThrow(() -> new NotFoundException("User not found"));
-        return toResponse(user);
-    }
-
-    @Transactional
-    public UserResponse update(long id, UserUpdateRequest request) {
-        User user = userRepository.findById(id)
-                .orElseThrow(() -> new NotFoundException("User not found"));
-
-        // If email changes, ensure uniqueness
-        if (!user.getEmail().equalsIgnoreCase(request.getEmail()) && userRepository.existsByEmail(request.getEmail())) {
-            throw new DuplicateEmailException("Email already exists");
-        }
+                .orElseThrow(() -> new NotFoundException("User not found with id=" + id));
 
         user.setName(request.getName());
         user.setEmail(request.getEmail());
+        user.setBio(request.getBio());
 
         User saved = userRepository.save(user);
         return toResponse(saved);
     }
 
-    @Transactional
-    public void delete(long id) {
+    public void delete(Long id) {
         if (!userRepository.existsById(id)) {
-            throw new NotFoundException("User not found");
+            throw new NotFoundException("User not found with id=" + id);
         }
         userRepository.deleteById(id);
     }
@@ -75,8 +67,8 @@ public class UserService {
         response.setId(user.getId());
         response.setName(user.getName());
         response.setEmail(user.getEmail());
+        response.setBio(user.getBio());
         response.setCreatedAt(user.getCreatedAt());
-        response.setUpdatedAt(user.getUpdatedAt());
         return response;
     }
 }
