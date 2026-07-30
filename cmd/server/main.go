@@ -4,19 +4,31 @@ import (
 	"log"
 	"net/http"
 
-	"amol-nv/user_crud/internal/httpapi"
-	"amol-nv/user_crud/internal/store"
-	"amol-nv/user_crud/internal/users"
+	"github.com/amol-nv/user_crud/internal/httpapi"
+	"github.com/amol-nv/user_crud/internal/inventory"
+	"github.com/amol-nv/user_crud/internal/payments"
+	"github.com/amol-nv/user_crud/internal/store"
+	"github.com/amol-nv/user_crud/internal/users"
 )
 
 func main() {
-	st := store.NewInMemoryUserStore()
-	svc := users.NewService(st)
+	// Existing repository uses in-memory stores.
+	userStore := store.NewInMemoryUserStore()
+	inventoryStore := store.NewInMemoryInventoryStore()
+	paymentRepo := payments.NewInMemoryPaymentRepository()
 
-	r := httpapi.NewRouter(svc)
+	userSvc := users.NewService(userStore)
+	inventorySvc := inventory.NewService(inventoryStore)
+	paymentSvc := payments.NewService(paymentRepo)
+
+	router := httpapi.NewRouter(
+		httpapi.WithUserService(userSvc),
+		httpapi.WithInventoryService(inventorySvc),
+		httpapi.WithPaymentService(paymentSvc),
+	)
 
 	log.Println("listening on :8080")
-	if err := http.ListenAndServe(":8080", r); err != nil {
+	if err := http.ListenAndServe(":8080", router); err != nil {
 		log.Fatal(err)
 	}
 }
