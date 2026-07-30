@@ -1,0 +1,14 @@
+spring:
+  datasource:
+    url: ${POSTGRES_TEST_URL:jdbc:postgresql://localhost:5432/user_crud_test}
+    username: ${POSTGRES_TEST_USER:postgres}
+    password: ${POSTGRES_TEST_PASSWORD:postgres}
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+    open-in-view: false
+server:
+  port: 0
